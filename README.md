@@ -1,5 +1,81 @@
 # Simple Captioner
 
+  Changes:
+  
+- Modified to run offline using local models defined in app.py
+- Defined models/paths will appear in the model selection list.
+- Original model selections are hidden.
+- Flash Attention 2 is enabled by default.
+- Quantization is disabled by default.
+- Increased default max tokens.
+- Changed default prompt.
+
+## Notes
+
+I am not planning to build on, or update this repository.
+
+It's just a custom fork for my own convenience.
+
+All credit goes to Olli S.
+
+
+---
+
+## Windows Installation (PyTorch 2.10 + CUDA 13.0 + Python 3.12 + Flash Attention 2.8.3)
+
+  Via Powershell:
+
+1. **Clone the repository**:
+
+   ```bash
+   git clone https://github.com/Highstate/simple-captioner.git SimpleCaptioner
+   cd SimpleCaptioner
+
+2. Create and activate virtual environment:
+
+    ```bash
+    python -m venv venv
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    venv/Scripts/Activate.ps1
+
+3. Install Torch
+
+    ```bash
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+    
+4. Install Flash Attention
+
+   Download the Flash Attention wheel from (https://github.com/wildminder/AI-windows-whl?tab=readme-ov-file) and move it to your SimpleCaptioner folder
+
+    ```bash
+    pip install ".\flash_attn-2.8.3+cu130torch2.10-cp312-cp312-win_amd64.whl"
+
+5. Install Gradio
+
+    ```bash
+    pip install gradio==5.31.0
+
+6. Install dependencies
+
+    ```bash
+    pip install -r requirements.txt
+
+7. Install Triton-Windows
+
+    ```bash
+    pip install triton-windows
+
+8. Run SimpleCaptioner
+
+    Use run_app.bat or from the command line:
+   
+    ```bash
+    python app.py
+
+---
+
+# Simple Captioner
+
 A minimal media captioning tool powered by **[Qwen2.5/3 VL Instruct](https://huggingface.co/Qwen/)** from Alibaba Group.
 
 This tool uses a Gradio UI to batch process folders of **images and videos** and generate descriptive captions.
