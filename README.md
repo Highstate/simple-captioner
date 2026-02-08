@@ -2,7 +2,7 @@
 
   Changes:
   
-- Modified to run offline using local models defined in app.py
+- Modified to run offline using local models defined in app.py (See LOCAL_MODELS Ln#35)
 - Defined models/paths will appear in the model selection list.
 - Original model selections are hidden.
 - Flash Attention 2 is enabled by default.
@@ -14,9 +14,9 @@
 
 I am not planning to build on, or update this repository.
 
-It's just a custom fork for my own convenience.
+It's just a custom fork setup for my own dataset captioning needs.
 
-All credit goes to Olli S.
+All credit goes to to the original author, Olli S.
 
 
 ---
