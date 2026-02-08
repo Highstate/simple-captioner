@@ -9,10 +9,10 @@ import time
 
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp')
 VIDEO_EXTENSIONS = ('.mp4', '.mov', '.avi', '.webm', '.mkv', ".gif", ".flv")
-DEFAULT_PROMPT = "Describe this media."
-DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-8B-Instruct"
-DEFAULT_QUANT = "8-bit"  # "None" | "8-bit" | "4-bit"
-DEFAULT_ATTN = "eager" if os.name == "nt" else "flash_attention_2"
+DEFAULT_PROMPT = "Describe this image using natural language."
+DEFAULT_MODEL_ID = "Qwen3-VL-8B-Instruct-Heretic"
+DEFAULT_QUANT = "None"  # "None" | "8-bit" | "4-bit"
+DEFAULT_ATTN = "flash_attention_2" if os.name == "nt" else "eager"
 
 
 PRESETS = {
@@ -31,13 +31,26 @@ PRESETS = {
 }
 
 
+# ===== EDIT THIS SECTION TO ADD YOUR LOCAL MODELS =====
+LOCAL_MODELS = {
+    "Qwen3-VL-4B-Instruct-Heretic": r"E:\Models\VLM\Qwen3-VL-4B-Instruct-Heretic",
+    "Qwen3-VL-8B-Instruct-Heretic": r"E:\Models\VLM\Qwen3-VL-8B-Instruct-Heretic",
+    "Qwen3-VL-4B-Abliterated-Caption": r"E:\Models\VLM\Qwen3-VL-4B-Abliterated-Caption",
+    "Qwen3-VL-8B-Abliterated-Caption": r"E:\Models\VLM\Qwen3-VL-8B-Abliterated-Caption",
+}
+# =======================================================
+
+
 AVAILABLE_MODELS = [
-    "Qwen/Qwen3-VL-4B-Instruct",
-    "Qwen/Qwen3-VL-8B-Instruct",
-    "Qwen/Qwen2.5-VL-3B-Instruct",
-    "Qwen/Qwen2.5-VL-7B-Instruct",
-    "Custom...",
+#    "Qwen/Qwen3-VL-4B-Instruct",
+#    "Qwen/Qwen3-VL-8B-Instruct",
+#    "Qwen/Qwen2.5-VL-3B-Instruct",
+#    "Qwen/Qwen2.5-VL-7B-Instruct",
+#    "Custom...",
 ]
+
+# Add local models to the dropdown
+AVAILABLE_MODELS = list(LOCAL_MODELS.keys()) + AVAILABLE_MODELS
 
 
 # Globals
@@ -57,17 +70,38 @@ def build_bnb_config(quant_choice: str):
     return None
 
 def pick_model_class(model_id: str):
-    from transformers import AutoModelForVision2Seq
+    """
+    Determines the correct model class based on the model ID or path.
+    Falls back to AutoModel if specific classes aren't available.
+    """
     try:
-        if "Qwen3-VL" in model_id:
+        # Try to detect Qwen3-VL models
+        if "Qwen3-VL" in model_id or "qwen3-vl" in model_id.lower():
             from transformers import Qwen3VLForConditionalGeneration
             return Qwen3VLForConditionalGeneration
-        if "Qwen2.5-VL" in model_id or "Qwen2_5-VL" in model_id:
+    except ImportError:
+        pass
+    
+    try:
+        # Try to detect Qwen2.5-VL models
+        if "Qwen2.5-VL" in model_id or "Qwen2_5-VL" in model_id or "qwen2.5-vl" in model_id.lower() or "qwen2_5-vl" in model_id.lower():
             from transformers import Qwen2_5_VLForConditionalGeneration
             return Qwen2_5_VLForConditionalGeneration
-    except Exception:
+    except ImportError:
         pass
-    return AutoModelForVision2Seq
+    
+    # Fallback to AutoModel
+    from transformers import AutoModelForCausalLM
+    return AutoModelForCausalLM
+
+def resolve_model_path(model_id: str) -> str:
+    """
+    Resolves the model path. If it's a key in LOCAL_MODELS, returns the local path.
+    Otherwise, returns the model_id as-is (for HuggingFace Hub models or custom paths).
+    """
+    if model_id in LOCAL_MODELS:
+        return LOCAL_MODELS[model_id]
+    return model_id
 
 def unload_model():
 
@@ -91,8 +125,11 @@ def load_selected_model(model_id: str, quant_choice: str, attn_impl: str = DEFAU
     Loads (or reloads) the model + processor with chosen quantization and attention impl.
     Falls back to 'eager' if flash_attention_2 fails.
     """
-
+    # Resolve the actual path (local or HuggingFace)
+    actual_path = resolve_model_path(model_id)
+    
     print("[DEBUG] Loading selected model:", model_id)
+    print("[DEBUG] Resolved path:", actual_path)
     global model, processor, current_model_id, current_quant
 
     unload_model()
@@ -101,22 +138,30 @@ def load_selected_model(model_id: str, quant_choice: str, attn_impl: str = DEFAU
         "dtype": torch.float16,
         "device_map": "auto",
         "attn_implementation": attn_impl,
+        "local_files_only": False,  # Allow HuggingFace downloads unless path is local
     }
+    
+    # Check if this is a local path
+    if os.path.exists(actual_path):
+        kwargs["local_files_only"] = True
+        print("[DEBUG] Using local_files_only=True for local model")
+    
     bnb = build_bnb_config(quant_choice)
     if bnb is not None:
         kwargs["quantization_config"] = bnb
 
-    ModelCls = pick_model_class(model_id)
+    ModelCls = pick_model_class(actual_path)
     try:
-        model = ModelCls.from_pretrained(model_id, **kwargs)
-    except Exception:
+        model = ModelCls.from_pretrained(actual_path, **kwargs)
+    except Exception as e:
         if attn_impl == "flash_attention_2":
+            print(f"[DEBUG] FlashAttention failed, falling back to eager: {e}")
             kwargs["attn_implementation"] = "eager"
-            model = ModelCls.from_pretrained(model_id, **kwargs)
+            model = ModelCls.from_pretrained(actual_path, **kwargs)
         else:
             raise
     from transformers import AutoProcessor as _AP
-    processor = _AP.from_pretrained(model_id, use_fast=True)
+    processor = _AP.from_pretrained(actual_path, **kwargs)
 
     current_model_id = model_id
     current_quant = quant_choice
@@ -527,12 +572,13 @@ with gr.Blocks(theme=gr.themes.Base(), css=css) as iface: # type: ignore
             value=DEFAULT_MODEL_ID,
             allow_custom_value=False,
             interactive=True,
-            info="Pick a model to use for captioning."
+            info="Pick a model to use for captioning. Local models (if configured) appear at the top."
         )
         custom_model_box = gr.Textbox(
-            label="Custom Model ID (Hugging Face)",
-            placeholder="e.g. Qwen/Qwen3-VL-4B-Instruct or your-org/my-qwen3-checkpoint",
+            label="Custom Model ID or Path",
+            placeholder="e.g. Qwen/Qwen3-VL-4B-Instruct or E:\\path\\to\\local\\model",
             visible=False,
+            info="Enter a HuggingFace model ID or an absolute path to a local model directory"
         )
         ui_e["quant_dropdown"] = quant_dropdown = gr.Radio(
             label="Quantization",
@@ -551,7 +597,7 @@ with gr.Blocks(theme=gr.themes.Base(), css=css) as iface: # type: ignore
         ui_e["load_button"] = gr.Button("📦 Load / Reload Model")
 
     def _toggle_custom(choice):
-        return gr.update(visible=(choice == "Custom…"))
+        return gr.update(visible=(choice == "Custom..."))
 
     model_dropdown.change(_toggle_custom, inputs=[model_dropdown], outputs=[custom_model_box])
 
@@ -589,7 +635,7 @@ with gr.Blocks(theme=gr.themes.Base(), css=css) as iface: # type: ignore
     )
 
     with gr.Row():
-        ui_e["max_tokens_slider"] = gr.Slider(label="🧾 Max Tokens", minimum=32, maximum=512, value=128, step=16)
+        ui_e["max_tokens_slider"] = gr.Slider(label="🧾 Max Tokens", minimum=32, maximum=512, value=192, step=16)
         ui_e["resolution_mode"] = gr.Dropdown(
             label="Image Resolution",
             choices=["auto", "auto_high", "fast", "high"],
