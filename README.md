@@ -21,7 +21,7 @@ All credit goes to to the original author, Olli S.
 
 ---
 
-## Windows Installation (PyTorch 2.10 + CUDA 13.0 + Python 3.12 + Flash Attention 2.8.3)
+## Windows Installation (Torch 2.10 + CUDA 13 + Python 3.12 + Flash Attention 2.8.3)
 
   Via Powershell:
 
@@ -71,6 +71,34 @@ All credit goes to to the original author, Olli S.
    
     ```bash
     python app.py
+
+---
+
+## Post-Installation
+
+- Add models by providing a model name and local path in app.py (Ln#35). Change the default model name in (Ln#13).
+
+
+## Model Downloads CLI
+
+1. Install Huggingface Hub in global system environment
+
+    ```bash
+    pip install -U "huggingface_hub"
+
+2. Download HF model to local path, removing symlinks (Powershell)
+
+    ```bash
+    $env:HF_HUB_DISABLE_SYMLINKS="1"
+    hf download Qwen/Qwen3-VL-8B-Instruct --local-dir "E:/Models/VLM/Qwen3-VL-8B-Instruct"
+
+3. Download HF model to local path, removing symlinks (Command Prompt)
+
+    ```bash
+    set HF_HUB_DISABLE_SYMLINKS=1
+    hf download Qwen/Qwen3-VL-8B-Instruct --local-dir E:/Models/VLM/Qwen3-VL-8B-Instruct
+
+Note - Models that already exist in the local huggingface cache are not redownloaded, they will simply have their symlinks removed and moved to the specified directory.
 
 ---
 
